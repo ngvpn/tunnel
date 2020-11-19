@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 
 	_ "net/http/pprof"
 
@@ -28,6 +29,13 @@ func init() {
 	var (
 		printVersion bool
 	)
+
+	routeNum, _ := strconv.Atoi(os.Getenv("ROUTENUM"))
+	baseCfg.Routes = make([]route, routeNum)
+	for i := 1; i <= routeNum; i++ {
+		flag.Var(&baseCfg.Routes[i-1].ChainNodes, fmt.Sprintf("F%d", i), fmt.Sprintf("forward address %d, can make a forward chain", i))
+		flag.Var(&baseCfg.Routes[i-1].ServeNodes, fmt.Sprintf("L%d", i), fmt.Sprintf("listen address %d, can listen on multiple ports", i))
+	}
 
 	flag.Var(&baseCfg.route.ChainNodes, "F", "forward address, can make a forward chain")
 	flag.Var(&baseCfg.route.ServeNodes, "L", "listen address, can listen on multiple ports (required)")
