@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ type WSOptions struct {
 	EnableCompression   bool
 	UserAgent           string
 	Path                string
+	ReverseProxy        string
 	MuxVersion          int //1 or 2
 	MuxMaxReceiveBuffer int //mb
 	MuxMaxStreamBuffer  int //kb
@@ -408,6 +410,26 @@ func WSListener(addr string, options *WSOptions) (Listener, error) {
 		ReadHeaderTimeout: 30 * time.Second,
 	}
 
+	if options.ReverseProxy != "" {
+		for _, r := range strings.Split(options.ReverseProxy, ",") {
+			pathTarget := strings.SplitN(r, "@", 2)
+			if len(pathTarget) != 2 || pathTarget[0] == path {
+				continue
+			}
+			target, err := url.Parse(pathTarget[1])
+			if err != nil {
+				continue
+			}
+			reverseProxy := httputil.NewSingleHostReverseProxy(target)
+			reverseProxy.Director = func(req *http.Request) {
+				req.URL.Scheme = target.Scheme
+				req.URL.Host = target.Host
+				req.URL.Path = target.Path
+			}
+			mux.Handle(pathTarget[0], reverseProxy)
+		}
+	}
+
 	ln, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		return nil, err
@@ -510,6 +532,26 @@ func MWSListener(addr string, options *WSOptions) (Listener, error) {
 		Addr:              addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 30 * time.Second,
+	}
+
+	if options.ReverseProxy != "" {
+		for _, r := range strings.Split(options.ReverseProxy, ",") {
+			pathTarget := strings.SplitN(r, "@", 2)
+			if len(pathTarget) != 2 || pathTarget[0] == path {
+				continue
+			}
+			target, err := url.Parse(pathTarget[1])
+			if err != nil {
+				continue
+			}
+			reverseProxy := httputil.NewSingleHostReverseProxy(target)
+			reverseProxy.Director = func(req *http.Request) {
+				req.URL.Scheme = target.Scheme
+				req.URL.Host = target.Host
+				req.URL.Path = target.Path
+			}
+			mux.Handle(pathTarget[0], reverseProxy)
+		}
 	}
 
 	ln, err := net.ListenTCP("tcp", tcpAddr)

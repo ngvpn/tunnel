@@ -360,6 +360,7 @@ func (r *route) GenRouters() ([]router, error) {
 		wsOpts.ReadBufferSize = node.GetInt("rbuf")
 		wsOpts.WriteBufferSize = node.GetInt("wbuf")
 		wsOpts.Path = node.Get("path")
+		wsOpts.ReverseProxy = node.Get("reverseproxy")
 		wsOpts.MuxVersion = node.GetInt("mver")
 		wsOpts.MuxMaxReceiveBuffer = node.GetInt("mrbuf")
 		wsOpts.MuxMaxStreamBuffer = node.GetInt("msbuf")
