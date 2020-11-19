@@ -1,15 +1,15 @@
 package gost
 
 import (
+	"io"
 	"net"
 
-	smux "github.com/xtaci/smux"
+	ymux "github.com/hashicorp/yamux"
 )
 
 type muxStreamConn struct {
 	net.Conn
-	stream  *smux.Stream
-	session *smux.Session
+	stream io.ReadWriteCloser
 }
 
 func (c *muxStreamConn) Read(b []byte) (n int, err error) {
@@ -26,19 +26,51 @@ func (c *muxStreamConn) Close() error {
 
 type muxSession struct {
 	conn    net.Conn
-	session *smux.Session
+	session muxSessionInterface
+}
+
+type muxSessionInterface interface {
+	Open() (io.ReadWriteCloser, error)
+	Accept() (io.ReadWriteCloser, error)
+	Close() error
+	IsClosed() bool
+	NumStreams() int
+}
+
+type ymuxSession struct {
+	session *ymux.Session
+}
+
+func (y *ymuxSession) Open() (io.ReadWriteCloser, error) {
+	return y.session.Open()
+}
+
+func (y *ymuxSession) Accept() (io.ReadWriteCloser, error) {
+	return y.session.Accept()
+}
+
+func (y *ymuxSession) Close() error {
+	return y.session.Close()
+}
+
+func (y *ymuxSession) IsClosed() bool {
+	return y.session.IsClosed()
+}
+
+func (y *ymuxSession) NumStreams() int {
+	return y.session.NumStreams()
 }
 
 func (session *muxSession) GetConn() (net.Conn, error) {
-	stream, err := session.session.OpenStream()
+	stream, err := session.session.Open()
 	if err != nil {
 		return nil, err
 	}
-	return &muxStreamConn{Conn: session.conn, stream: stream, session: session.session}, nil
+	return &muxStreamConn{Conn: session.conn, stream: stream}, nil
 }
 
 func (session *muxSession) Accept() (net.Conn, error) {
-	stream, err := session.session.AcceptStream()
+	stream, err := session.session.Accept()
 	if err != nil {
 		return nil, err
 	}

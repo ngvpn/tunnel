@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-log/log"
 	"github.com/gorilla/websocket"
+	ymux "github.com/hashicorp/yamux"
 	smux "github.com/xtaci/smux"
 )
 
@@ -180,6 +181,18 @@ func (tr *mwsTransporter) initSession(addr string, conn net.Conn, opts *Handshak
 		return nil, err
 	}
 	// stream multiplex
+	if wsOptions.MuxVersion == 89 {
+		ymuxConfig := ymux.DefaultConfig()
+		if wsOptions.MuxMaxStreamBuffer > 0 {
+			ymuxConfig.MaxStreamWindowSize = uint32(wsOptions.MuxMaxStreamBuffer) * 1024
+		}
+		session, err := ymux.Client(conn, ymuxConfig)
+		if err != nil {
+			return nil, err
+		}
+		return &muxSession{conn: conn, session: &ymuxSession{session}}, nil
+	}
+
 	smuxConfig := smux.DefaultConfig()
 	if wsOptions.MuxVersion > 0 {
 		smuxConfig.Version = wsOptions.MuxVersion
@@ -349,6 +362,18 @@ func (tr *mwssTransporter) initSession(addr string, conn net.Conn, opts *Handsha
 		return nil, err
 	}
 	// stream multiplex
+	if wsOptions.MuxVersion == 89 {
+		ymuxConfig := ymux.DefaultConfig()
+		if wsOptions.MuxMaxStreamBuffer > 0 {
+			ymuxConfig.MaxStreamWindowSize = uint32(wsOptions.MuxMaxStreamBuffer) * 1024
+		}
+		session, err := ymux.Client(conn, ymuxConfig)
+		if err != nil {
+			return nil, err
+		}
+		return &muxSession{conn: conn, session: &ymuxSession{session}}, nil
+	}
+
 	smuxConfig := smux.DefaultConfig()
 	if wsOptions.MuxVersion > 0 {
 		smuxConfig.Version = wsOptions.MuxVersion
@@ -588,7 +613,11 @@ func (l *mwsListener) upgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	l.mux(websocketServerConn(conn))
+	if l.muxVersion == 89 {
+		l.ymux(websocketServerConn(conn))
+	} else {
+		l.mux(websocketServerConn(conn))
+	}
 }
 
 func (l *mwsListener) mux(conn net.Conn) {
@@ -625,6 +654,38 @@ func (l *mwsListener) mux(conn net.Conn) {
 		default:
 			cc.Close()
 			log.Logf("[mws] %s - %s: connection queue is full", conn.RemoteAddr(), conn.LocalAddr())
+		}
+	}
+}
+
+func (l *mwsListener) ymux(conn net.Conn) {
+	ymuxConfig := ymux.DefaultConfig()
+	if l.muxMaxStreamBuffer > 0 {
+		ymuxConfig.MaxStreamWindowSize = uint32(l.muxMaxStreamBuffer) * 1024
+	}
+	mux, err := ymux.Server(conn, ymuxConfig)
+	if err != nil {
+		log.Logf("[ymws] %s - %s : %s", conn.RemoteAddr(), l.Addr(), err)
+		return
+	}
+	defer mux.Close()
+
+	log.Logf("[ymws] %s <-> %s", conn.RemoteAddr(), l.Addr())
+	defer log.Logf("[ymws] %s >-< %s", conn.RemoteAddr(), l.Addr())
+
+	for {
+		stream, err := mux.AcceptStream()
+		if err != nil {
+			log.Log("[ymws] accept stream:", err)
+			return
+		}
+
+		cc := &muxStreamConn{Conn: conn, stream: stream}
+		select {
+		case l.connChan <- cc:
+		default:
+			cc.Close()
+			log.Logf("[ymws] %s - %s: connection queue is full", conn.RemoteAddr(), conn.LocalAddr())
 		}
 	}
 }

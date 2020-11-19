@@ -20,6 +20,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/gorilla/websocket v1.4.2
+	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce
 	github.com/klauspost/compress v1.11.1
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.9 // indirect
