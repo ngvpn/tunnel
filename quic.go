@@ -1,7 +1,6 @@
 package gost
 
 import (
-	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -22,7 +21,7 @@ type quicSession struct {
 }
 
 func (session *quicSession) GetConn() (*quicConn, error) {
-	stream, err := session.session.OpenStreamSync(context.Background())
+	stream, err := session.session.OpenStreamSync()
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +34,7 @@ func (session *quicSession) GetConn() (*quicConn, error) {
 
 func (session *quicSession) Close() error {
 	session.conn.Close()
-	return session.session.CloseWithError(0, "close without error")
+	return session.session.Close(nil)
 }
 
 type quicTransporter struct {
@@ -106,7 +105,6 @@ func (tr *quicTransporter) Handshake(conn net.Conn, options ...HandshakeOption) 
 	if config.TLSConfig == nil {
 		config.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 	}
-	config.TLSConfig.NextProtos = []string{"quic-go"}
 
 	tr.sessionMutex.Lock()
 	defer tr.sessionMutex.Unlock()
@@ -155,8 +153,11 @@ func (tr *quicTransporter) initSession(addr string, conn net.Conn, config *QUICC
 	quicConfig := &quic.Config{
 		HandshakeTimeout: config.Timeout,
 		KeepAlive:        config.KeepAlive,
-		MaxIdleTimeout:   config.IdleTimeout,
-		Versions:         []quic.VersionNumber{},
+		IdleTimeout:      config.IdleTimeout,
+		Versions:         []quic.VersionNumber{
+			// quic.VersionGQUIC43,
+			// quic.VersionGQUIC39,
+		},
 	}
 	session, err := quic.Dial(udpConn, udpAddr, addr, config.TLSConfig, quicConfig)
 	if err != nil {
@@ -194,14 +195,13 @@ func QUICListener(addr string, config *QUICConfig) (Listener, error) {
 	quicConfig := &quic.Config{
 		HandshakeTimeout: config.Timeout,
 		KeepAlive:        config.KeepAlive,
-		MaxIdleTimeout:   config.IdleTimeout,
+		IdleTimeout:      config.IdleTimeout,
 	}
 
 	tlsConfig := config.TLSConfig
 	if tlsConfig == nil {
 		tlsConfig = DefaultTLSConfig
 	}
-	tlsConfig.NextProtos = []string{"quic-go"}
 
 	var conn net.PacketConn
 
@@ -237,7 +237,7 @@ func QUICListener(addr string, config *QUICConfig) (Listener, error) {
 
 func (l *quicListener) listenLoop() {
 	for {
-		session, err := l.ln.Accept(context.Background())
+		session, err := l.ln.Accept()
 		if err != nil {
 			log.Log("[quic] accept:", err)
 			l.errChan <- err
@@ -253,10 +253,10 @@ func (l *quicListener) sessionLoop(session quic.Session) {
 	defer log.Logf("[quic] %s >-< %s", session.RemoteAddr(), session.LocalAddr())
 
 	for {
-		stream, err := session.AcceptStream(context.Background())
+		stream, err := session.AcceptStream()
 		if err != nil {
 			log.Log("[quic] accept stream:", err)
-			session.CloseWithError(0, err.Error())
+			session.Close(nil)
 			return
 		}
 
