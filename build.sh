@@ -1,5 +1,5 @@
-BUILDDIR=$(shell pwd)/cmd/gost
-VERSION=2.12.2
+BUILDDIR=$(pwd)/cmd/gost
+VERSION=$(cat gost.go | grep 'Version =' | sed 's/.*\"\(.*\)\".*/\1/g')
 
 build() {
     os=$1
@@ -9,7 +9,7 @@ build() {
 		ext=".exe"
     fi
 
-    GOOS=$os GOARCH=$arch go build -v -ldflags "-w -s" -trimpath -o $BUILDDIR/gost$VERSION.$os-$arch$ext $BUILDDIR
+    GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -v -ldflags "-w -s" -trimpath -o $BUILDDIR/gost$VERSION.$os-$arch$ext $BUILDDIR
 }
 
 build windows amd64
