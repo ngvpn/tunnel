@@ -30,6 +30,9 @@ func NewMatcher(pattern string) Matcher {
 	if pattern == "" {
 		return nil
 	}
+	if strings.HasSuffix(pattern, "/a") || strings.HasSuffix(pattern, "/A") {
+		return DNSMatcher(pattern[:len(pattern)-2])
+	}
 	if ip := net.ParseIP(pattern); ip != nil {
 		return IPMatcher(ip)
 	}
@@ -116,6 +119,46 @@ func (m *domainMatcher) Match(domain string) bool {
 
 func (m *domainMatcher) String() string {
 	return "domain " + m.pattern
+}
+
+type dnsMatcher struct {
+	domain string
+	ips    []net.IP
+	ts     int64
+}
+
+// DNSMatcher creates a Matcher for a specific domain address.
+func DNSMatcher(pattern string) Matcher {
+	return &dnsMatcher{
+		domain: pattern,
+	}
+}
+
+func (m *dnsMatcher) Match(ip string) bool {
+	if m == nil {
+		return false
+	}
+	if time.Since(time.Unix(m.ts, 0)) > defaultTTL {
+		ips, err := net.LookupIP(m.domain)
+		if err == nil && len(ips) > 0 {
+			m.ips = ips
+		}
+		m.ts = time.Now().Unix()
+	}
+	for _, i := range m.ips {
+		if i.Equal(net.ParseIP(ip)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *dnsMatcher) String() string {
+	iplist := []string{}
+	for _, i := range m.ips {
+		iplist = append(iplist, i.String())
+	}
+	return "dns ip " + m.domain + " " + strings.Join(iplist, " ")
 }
 
 // Bypass is a filter for address (IP or domain).
