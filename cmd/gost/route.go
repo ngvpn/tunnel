@@ -492,7 +492,7 @@ func (r *route) GenRouters() ([]router, error) {
 				chain.Nodes()[len(chain.Nodes())-1].Client.Connector = gost.SSHRemoteForwardConnector()
 				chain.Nodes()[len(chain.Nodes())-1].Client.Transporter = gost.SSHForwardTransporter()
 			}
-			ln, err = gost.TCPRemoteForwardListener(node.Addr, chain)
+			ln, err = gost.TCPRemoteForwardListener(node.Addr, chain, parseBypass(node.Get("bypass")))
 		case "rudp":
 			ln, err = gost.UDPRemoteForwardListener(node.Addr,
 				chain,

@@ -344,6 +344,7 @@ func (h *udpRemoteForwardHandler) Handle(conn net.Conn) {
 type tcpRemoteForwardListener struct {
 	addr       net.Addr
 	chain      *Chain
+	bypass     *Bypass
 	connChan   chan net.Conn
 	ln         net.Listener
 	session    *muxSession
@@ -353,7 +354,7 @@ type tcpRemoteForwardListener struct {
 }
 
 // TCPRemoteForwardListener creates a Listener for TCP remote port forwarding server.
-func TCPRemoteForwardListener(addr string, chain *Chain) (Listener, error) {
+func TCPRemoteForwardListener(addr string, chain *Chain, bypass *Bypass) (Listener, error) {
 	laddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -362,6 +363,7 @@ func TCPRemoteForwardListener(addr string, chain *Chain) (Listener, error) {
 	ln := &tcpRemoteForwardListener{
 		addr:     laddr,
 		chain:    chain,
+		bypass:   bypass,
 		connChan: make(chan net.Conn, 1024),
 		closed:   make(chan struct{}),
 	}
@@ -570,6 +572,10 @@ func (l *tcpRemoteForwardListener) waitConnectSOCKS5(conn net.Conn) (net.Conn, e
 	if rep.Rep != gosocks5.Succeeded {
 		log.Logf("[rtcp] peer connect failure: %d", rep.Rep)
 		return nil, errors.New("peer connect failure")
+	}
+	if l.bypass.Contains(rep.Addr.String()) {
+		log.Logf("[rtcp] bypass %s", rep.Addr)
+		return nil, errors.New("peer bypass failure")
 	}
 
 	log.Logf("[rtcp] PEER %s CONNECTED", rep.Addr)
