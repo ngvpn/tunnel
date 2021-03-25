@@ -81,6 +81,12 @@ func (s *Server) Serve(h Handler, opts ...ServerOption) error {
 		}
 		tempDelay = 0
 
+		if s.options.BypassAccept.Contains(conn.RemoteAddr().String()) {
+			log.Log("[bypass accept]", conn.RemoteAddr())
+			conn.Close()
+			continue
+		}
+
 		go h.Handle(conn)
 	}
 }
@@ -92,10 +98,18 @@ func (s *Server) Run() error {
 
 // ServerOptions holds the options for Server.
 type ServerOptions struct {
+	BypassAccept *Bypass
 }
 
 // ServerOption allows a common way to set server options.
 type ServerOption func(opts *ServerOptions)
+
+// BypassAcceptServerOption sets the bypass accept client option of ServerOptions.
+func BypassAcceptServerOption(bypassAccept *Bypass) ServerOption {
+	return func(opts *ServerOptions) {
+		opts.BypassAccept = bypassAccept
+	}
+}
 
 // Listener is a proxy server listener, just like a net.Listener.
 type Listener interface {

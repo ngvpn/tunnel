@@ -665,6 +665,11 @@ func (r *route) GenRouters() ([]router, error) {
 			resolver: resolver,
 			hosts:    hosts,
 		}
+
+		rt.server.Init(
+			gost.BypassAcceptServerOption(parseBypass(node.Get("bypassaccept"))),
+		)
+
 		rts = append(rts, rt)
 	}
 
