@@ -393,7 +393,7 @@ func (r *resolver) Exchange(ctx context.Context, query []byte) (reply []byte, er
 		}
 
 		defer func() {
-			if mr != nil {
+			if mr != nil && mr.MsgHdr.Rcode != dns.RcodeServerFailure {
 				r.cache.storeCache(key, mr, r.TTL())
 			}
 		}()
