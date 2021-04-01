@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,6 +15,21 @@ var (
 	// ErrEmptyChain is an error that implies the chain is empty.
 	ErrEmptyChain = errors.New("empty chain")
 )
+
+var (
+	allNetConnList []net.Conn
+	allNetConnMux  sync.Mutex
+)
+
+// ReleaseAllNetConn closes all direct network connections.
+func ReleaseAllNetConn() {
+	allNetConnMux.Lock()
+	for _, conn := range allNetConnList {
+		conn.Close()
+	}
+	allNetConnList = nil
+	allNetConnMux.Unlock()
+}
 
 // Chain is a proxy chain that holds a list of proxy node groups.
 type Chain struct {
@@ -164,7 +180,13 @@ func makeDialer(p FDProtector, timeout time.Duration) (d *net.Dialer) {
 // the provided context and fd protector
 func DialWithFDProtector(ctx context.Context, network, address string, timeout time.Duration, fdp FDProtector) (net.Conn, error) {
 	d := makeDialer(fdp, timeout)
-	return d.DialContext(ctx, network, address)
+	conn, err := d.DialContext(ctx, network, address)
+	if err == nil {
+		allNetConnMux.Lock()
+		allNetConnList = append(allNetConnList, conn)
+		allNetConnMux.Unlock()
+	}
+	return conn, err
 }
 
 // makeListenConfig returns a new ListenConfig that creates protected
