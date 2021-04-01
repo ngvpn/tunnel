@@ -47,5 +47,5 @@ require (
 	github.com/xtaci/tcpraw v1.2.25
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/net v0.0.0-20210331212208-0fccb6fa2b5c
-	gopkg.in/xtaci/kcp-go.v4 v4.3.4
+	github.com/xtaci/kcp-go v5.4.20+incompatible
 )
