@@ -150,9 +150,10 @@ func (h *tcpDirectForwardHandler) Handle(conn net.Conn) {
 	if addr == "" {
 		addr = conn.LocalAddr().String()
 	}
-	log.Logf("[tcp] %s <-> %s", conn.RemoteAddr(), addr)
+	remoteAddr := conn.RemoteAddr().String()
+	log.Logf("[tcp] %s <-> %s", remoteAddr, addr)
 	transport(conn, cc)
-	log.Logf("[tcp] %s >-< %s", conn.RemoteAddr(), addr)
+	log.Logf("[tcp] %s >-< %s", remoteAddr, addr)
 }
 
 type udpDirectForwardHandler struct {
@@ -210,9 +211,10 @@ func (h *udpDirectForwardHandler) Handle(conn net.Conn) {
 	if addr == "" {
 		addr = conn.LocalAddr().String()
 	}
-	log.Logf("[udp] %s <-> %s", conn.RemoteAddr(), addr)
+	remoteAddr := conn.RemoteAddr().String()
+	log.Logf("[udp] %s <-> %s", remoteAddr, addr)
 	transport(conn, cc)
-	log.Logf("[udp] %s >-< %s", conn.RemoteAddr(), addr)
+	log.Logf("[udp] %s >-< %s", remoteAddr, addr)
 }
 
 type tcpRemoteForwardHandler struct {
