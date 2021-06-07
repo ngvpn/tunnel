@@ -31,6 +31,18 @@ func ReleaseAllNetConn() {
 	allNetConnMux.Unlock()
 }
 
+// ReleaseNetConn closes underlying network connection
+func ReleaseNetConn(conn net.Conn) {
+	allNetConnMux.Lock()
+	for _, c := range allNetConnList {
+		if c.LocalAddr().String() == conn.LocalAddr().String() {
+			c.Close()
+			break
+		}
+	}
+	allNetConnMux.Unlock()
+}
+
 // Chain is a proxy chain that holds a list of proxy node groups.
 type Chain struct {
 	isRoute    bool
